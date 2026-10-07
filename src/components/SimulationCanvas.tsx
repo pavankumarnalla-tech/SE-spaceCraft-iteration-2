@@ -35,17 +35,20 @@ export const SimulationCanvas: React.FC<CanvasProps> = ({ engine, width = 900, h
       const destPos = engine.environment.getDestination().position;
 
       // Intended Path (Simple dashed line from spacecraft to target)
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)'; // slate-400 with opacity
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([8, 8]);
       ctx.beginPath();
       ctx.moveTo(craftPos.x, craftPos.y);
       ctx.lineTo(destPos.x, destPos.y);
       ctx.stroke();
-      ctx.setLineDash([]); // reset
+      ctx.setLineDash([]);
 
       drawDestination(ctx, engine.environment.getDestination());
-      drawObstacle(ctx, engine.environment.getObstacle());
+      
+      const obstacles = engine.environment.getObstacles();
+      obstacles.forEach(obs => drawObstacle(ctx, obs));
+
       drawSpacecraft(ctx, engine);
 
       animationFrameId = requestAnimationFrame(render);
@@ -114,9 +117,9 @@ function drawObstacle(ctx: CanvasRenderingContext2D, obs: any) {
 
   // Label
   ctx.fillStyle = '#e2e8f0'; // slate-200
-  ctx.font = '12px sans-serif';
+  ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('OBSTACLE', x, y + obs.radius + 16);
+  ctx.fillText('OBSTACLE', x, y + obs.radius + 14);
 }
 
 function drawSpacecraft(ctx: CanvasRenderingContext2D, engine: SimulationEngine) {
@@ -126,7 +129,6 @@ function drawSpacecraft(ctx: CanvasRenderingContext2D, engine: SimulationEngine)
   ctx.save();
   ctx.translate(x, y);
   
-  // The spacecraft's orientation makes it immediately clear which direction it is travelling
   ctx.rotate(craft.heading);
 
   // Flame (only when moving)
@@ -141,8 +143,17 @@ function drawSpacecraft(ctx: CanvasRenderingContext2D, engine: SimulationEngine)
     ctx.fill();
   }
 
-  // Hull (Clear arrow/triangle shape pointing forward)
-  ctx.fillStyle = '#f8fafc'; // slate-50
+  // Hull color reflects active spacecraft subsystem state
+  if (craft.status === 'AVOIDING') {
+    ctx.fillStyle = '#f43f5e'; // rose-500
+  } else if (craft.status === 'REPLANNING') {
+    ctx.fillStyle = '#eab308'; // yellow-500
+  } else if (craft.status === 'EXECUTING_TASK') {
+    ctx.fillStyle = '#10b981'; // emerald-500
+  } else {
+    ctx.fillStyle = '#f8fafc'; // slate-50
+  }
+
   ctx.beginPath();
   ctx.moveTo(16, 0);       // Nose
   ctx.lineTo(-12, -10);    // Back left
@@ -152,4 +163,14 @@ function drawSpacecraft(ctx: CanvasRenderingContext2D, engine: SimulationEngine)
   ctx.fill();
 
   ctx.restore();
+
+  // Task execution ring effect around craft when executing mission task
+  if (craft.status === 'EXECUTING_TASK') {
+    const pulseRadius = 22 + Math.sin(performance.now() * 0.01) * 5;
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }
